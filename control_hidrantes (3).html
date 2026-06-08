@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Control de Hidrantes</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red:#D42B2B; --red-dark:#8B1A1A; --red-light:#FF5555;
+  --bg:#0D0F18; --surface:#161922; --surface2:#1E2235; --surface3:#252A40;
+  --border:#2A2F4A; --text:#EEF0FF; --text2:#8891B8; --text3:#555E80;
+  --ok:#22C55E; --warn:#F59E0B; --bad:#EF4444; --blue:#3B82F6;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* HEADER */
+header{background:linear-gradient(135deg,var(--red-dark),#0a0608 70%);padding:14px 16px 12px;border-bottom:2px solid var(--red);box-shadow:0 4px 24px rgba(212,43,43,.35);flex-shrink:0;z-index:50}
+.hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.hdr-icon{font-size:26px;filter:drop-shadow(0 0 8px rgba(255,80,80,.6))}
+.hdr-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:1.5px;color:#fff;line-height:1}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.5px;text-transform:uppercase;margin-top:2px}
+.hdr-right{margin-left:auto;display:flex;gap:6px}
+.sync-badge{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid;cursor:pointer;transition:all .2s}
+.sync-badge.online{color:var(--ok);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.1)}
+.sync-badge.offline{color:var(--warn);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.1)}
+.sync-badge.syncing{color:var(--blue);border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.1)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.sync-dot.pulse{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* FILTERS */
+.filters{background:var(--surface);padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.search-wrap{position:relative;margin-bottom:8px}
+.search-wrap input{width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:9px 12px 9px 38px;border-radius:var(--radius);font-size:15px;font-family:'Barlow',sans-serif;outline:none;transition:border-color .2s}
+.search-wrap input:focus{border-color:var(--red)}
+.search-wrap::before{content:'🔍';position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+.sector-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.sector-row::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:5px 11px;border-radius:18px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .15s;letter-spacing:.3px;text-transform:uppercase}
+.chip.active{background:var(--red);border-color:var(--red);color:#fff}
+.stats-row{display:flex;gap:12px;margin-top:7px;flex-wrap:wrap}
+.sstat{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.sdot{width:7px;height:7px;border-radius:50%}
+
+/* SCROLL AREA */
+#scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#list{padding:10px 10px 90px}
+
+/* CARDS */
+.sector-hdr{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface2);border-radius:var(--radius);border-left:4px solid var(--red);margin:6px 0 4px}
+.sector-hdr span{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.5px}
+.sector-ct{margin-left:auto;font-size:10px;font-weight:700;background:var(--border);padding:3px 8px;border-radius:10px;color:var(--text2)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;transition:border-color .15s,transform .1s;overflow:hidden}
+.card:active{transform:scale(.99)}
+.card.done{border-color:rgba(59,130,246,.35)}
+.card.issue{border-color:rgba(239,68,68,.5)}
+.card-hdr{display:flex;align-items:center;gap:10px;padding:11px 13px}
+.card-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:30px;color:var(--red);min-width:46px;text-align:center;line-height:1}
+.card-info{flex:1;min-width:0}
+.card-ubi{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-tags{display:flex;gap:5px;margin-top:3px;flex-wrap:wrap}
+.tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;letter-spacing:.2px}
+.t-piso{background:var(--surface3);color:var(--text2)}
+.t-lanza{background:rgba(59,130,246,.15);color:#7fb3ff}
+.t-diam{background:rgba(255,255,255,.06);color:var(--text3)}
+.t-venc{background:rgba(245,158,11,.15);color:var(--warn)}
+.t-venc.exp{background:rgba(239,68,68,.2);color:var(--bad)}
+.t-fecha{background:rgba(34,197,94,.1);color:var(--ok)}
+.badge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;border:2px solid var(--border)}
+.badge.pending{border-color:var(--border);background:var(--surface2);color:var(--text3)}
+.badge.ok{border-color:var(--ok);background:rgba(34,197,94,.12);color:var(--ok)}
+.badge.issue{border-color:var(--bad);background:rgba(239,68,68,.12);color:var(--bad)}
+.card-footer{padding:0 13px 9px;display:flex;flex-direction:column;gap:3px}
+.card-issue-txt{font-size:11px;color:var(--bad)}
+.card-obs-txt{font-size:11px;color:var(--text2)}
+.card-ctrl-txt{font-size:11px;color:var(--text3)}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0 11px;font-size:10px;font-weight:700;color:var(--text2);cursor:pointer;transition:color .2s;background:none;border:none;letter-spacing:.3px;text-transform:uppercase}
+.nav-btn .ni{font-size:19px}
+.nav-btn.active{color:var(--red)}
+
+/* OVERLAY & PANEL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(3px)}
+.overlay.on{opacity:1;pointer-events:all}
+.panel{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--border);border-radius:22px 22px 0 0;max-height:92vh;display:flex;flex-direction:column;transform:translateY(102%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:110}
+.panel.open{transform:translateY(0)}
+.panel-drag{width:38px;height:4px;background:var(--border);border-radius:2px;margin:11px auto 0;flex-shrink:0}
+.panel-head{padding:13px 18px 10px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.panel-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:38px;color:var(--red);line-height:1}
+.panel-name{font-weight:700;font-size:16px}
+.panel-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.panel-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 10px}
+.fsec{margin-bottom:14px}
+.fsec-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.frow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.frow:last-child{border-bottom:none}
+.flabel{flex:1;font-size:13px;line-height:1.3}
+.tg{display:flex;gap:5px}
+.tb{padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .15s;font-family:'Barlow',sans-serif}
+.tb.si.on{background:rgba(34,197,94,.2);border-color:var(--ok);color:var(--ok)}
+.tb.no.on{background:rgba(239,68,68,.2);border-color:var(--bad);color:var(--bad)}
+.tb.m.on{background:rgba(239,68,68,.2);border-color:var(--bad);color:var(--bad)}
+.tb.r.on{background:rgba(245,158,11,.2);border-color:var(--warn);color:var(--warn)}
+.tb.b.on{background:rgba(34,197,94,.2);border-color:var(--ok);color:var(--ok)}
+.finput{background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:13px;font-family:'Barlow',sans-serif;outline:none;transition:border-color .2s}
+.finput:focus{border-color:var(--red)}
+.ftextarea{width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:9px 11px;border-radius:var(--radius);font-size:13px;font-family:'Barlow',sans-serif;outline:none;resize:none;min-height:65px;transition:border-color .2s}
+.ftextarea:focus{border-color:var(--red)}
+.panel-actions{display:flex;gap:8px;padding:10px 16px 16px;border-top:1px solid var(--border);flex-shrink:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.btn-save{flex:1;background:var(--red);color:#fff;border:none;padding:13px;border-radius:var(--radius);font-size:15px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;transition:background .2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-save:active{background:var(--red-dark)}
+.btn-save.saving{background:var(--blue)}
+.btn-cancel{background:var(--surface2);color:var(--text2);border:1px solid var(--border);padding:13px 18px;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:'Barlow',sans-serif}
+
+/* RESUMEN */
+#view-res{display:none;padding:10px 10px 90px;overflow-y:auto;height:100%}
+#view-res.on{display:block}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.scard h3{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px}
+.srow:last-child{border-bottom:none}
+.snum{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px}
+.snum.ok{color:var(--ok)}.snum.bad{color:var(--bad)}.snum.warn{color:var(--warn)}.snum.blue{color:var(--blue)}
+.prog-bar{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.prog-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--red),var(--red-light));transition:width .6s}
+.iitem{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.iitem:last-child{border-bottom:none}
+.inum{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--bad);min-width:28px}
+.idesc{color:var(--text2);flex:1;line-height:1.4}
+.warn-card{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.04)}
+.bad-card{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04)}
+
+/* INFORME */
+#view-inf{display:none;padding:10px 10px 90px;overflow-y:auto;height:100%}
+#view-inf.on{display:block}
+.inf-controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.inf-controls h3{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;margin-bottom:12px}
+.inf-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+.inf-label{font-size:12px;color:var(--text2);font-weight:600;min-width:80px}
+.inf-select{background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:13px;font-family:'Barlow',sans-serif;outline:none;cursor:pointer;flex:1}
+.inf-btn{padding:11px 18px;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;transition:all .2s}
+.inf-btn.pdf{background:var(--red);color:#fff;flex:1}
+.inf-btn.csv{background:var(--surface3);color:var(--text);border:1px solid var(--border);flex:1}
+.inf-preview{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.inf-preview table{width:100%;border-collapse:collapse;font-size:11px}
+.inf-preview th{background:var(--surface2);padding:8px 6px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+.inf-preview td{padding:7px 6px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.inf-preview tr:last-child td{border-bottom:none}
+.inf-preview tr:hover td{background:var(--surface2)}
+.status-ok{color:var(--ok);font-weight:700}.status-bad{color:var(--bad);font-weight:700}.status-warn{color:var(--warn);font-weight:700}.status-na{color:var(--text3)}
+.inf-wrap{overflow-x:auto}
+
+/* SETUP MODAL */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.modal.hide{display:none}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;max-width:400px;width:100%}
+.modal-box h2{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.modal-box p{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px}
+.modal-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-size:14px;font-family:'Barlow',sans-serif;outline:none;margin-bottom:10px;transition:border-color .2s}
+.modal-input:focus{border-color:var(--blue)}
+.modal-btn{width:100%;background:var(--blue);color:#fff;border:none;padding:13px;border-radius:var(--radius);font-size:16px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:8px}
+.modal-skip{width:100%;background:none;border:1px solid var(--border);color:var(--text2);padding:10px;border-radius:var(--radius);font-size:13px;cursor:pointer;font-family:'Barlow',sans-serif}
+.modal-note{font-size:11px;color:var(--text3);line-height:1.5;margin-top:10px;padding:10px;background:var(--surface2);border-radius:8px}
+
+/* TOAST */
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--ok);color:#fff;padding:9px 18px;border-radius:20px;font-weight:700;font-size:13px;z-index:300;transition:transform .3s;box-shadow:0 4px 20px rgba(0,0,0,.5);white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--bad)}
+.toast.info{background:var(--blue)}
+
+/* empty */
+.empty{text-align:center;padding:50px 20px;color:var(--text2)}
+.empty .big{font-size:44px;margin-bottom:10px}
+
+/* PRINT STYLES */
+@media print{
+  body{background:#fff!important;color:#000!important;overflow:visible!important;display:block!important}
+  header,.filters,.bottom-nav,.panel,.overlay,.toast,.modal,#view-res,#view-inf .inf-controls,#view-lista{display:none!important}
+  #view-inf{display:block!important;padding:0!important;overflow:visible!important;height:auto!important}
+  .inf-preview{border:1px solid #ccc}
+  .inf-preview table{font-size:9pt}
+  .inf-preview th{background:#f0f0f0!important;color:#333!important;-webkit-print-color-adjust:exact}
+  .inf-preview td{color:#000!important;border-color:#ddd!important}
+  .inf-wrap{overflow:visible!important}
+  .print-header{display:block!important}
+}
+.print-header{display:none;margin-bottom:16px}
+.print-header h1{font-size:16pt;font-weight:bold;margin-bottom:4px}
+.print-header p{font-size:10pt;color:#555}
+</style>
+</head>
+<body>
+
+<!-- SETUP MODAL -->
+<div class="modal" id="setupModal">
+  <div class="modal-box">
+    <h2>☁️ Modo Online</h2>
+    <p>Para sincronizar datos entre usuarios ingresá un <strong>código de sala</strong> compartido. Todos los que usen el mismo código verán y editarán los mismos registros.</p>
+    <input class="modal-input" id="roomInput" type="text" placeholder="Ej: hospital-norte-2026" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="modal-btn" onclick="connectRoom()">🔗 Conectar sala</button>
+    <button class="modal-skip" onclick="skipOnline()">Continuar sin sincronización (solo local)</button>
+    <div class="modal-note">💡 El código es como una contraseña de acceso a los datos compartidos. Compartí el mismo código con todos los inspectores del equipo.</div>
+  </div>
+</div>
+
+<header>
+  <div class="hdr">
+    <span class="hdr-icon">🔴</span>
+    <div>
+      <div class="hdr-title">CONTROL DE HIDRANTES</div>
+      <div class="hdr-sub" id="hdr-sub">Depto. Higiene, Seguridad y Medio Ambiente</div>
+    </div>
+    <div class="hdr-right">
+      <div class="sync-badge offline" id="syncBadge" onclick="showSyncInfo()">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncTxt">Local</span>
+      </div>
+    </div>
+  </div>
+  <div class="filters">
+    <div class="search-wrap">
+      <input type="search" id="search" placeholder="Buscar N°, ubicación, sector..." oninput="renderList()" autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+    <div class="sector-row" id="sectorRow"></div>
+    <div class="stats-row" id="statsRow"></div>
+  </div>
+</header>
+
+<div id="scroll-area" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+  <div id="view-lista">
+    <div id="list"></div>
+  </div>
+  <div id="view-res"></div>
+  <div id="view-inf">
+    <div class="print-header">
+      <h1>Planilla de Inspección de Hidrantes</h1>
+      <p id="printMeta"></p>
+    </div>
+    <div class="inf-controls">
+      <h3>📄 Generar Informe</h3>
+      <div class="inf-row">
+        <span class="inf-label">Sector</span>
+        <select class="inf-select" id="infSector" onchange="renderInforme()">
+          <option value="TODOS">Todos los sectores</option>
+        </select>
+      </div>
+      <div class="inf-row">
+        <span class="inf-label">Mostrar</span>
+        <select class="inf-select" id="infFiltro" onchange="renderInforme()">
+          <option value="todos">Todos</option>
+          <option value="inspeccionados">Solo inspeccionados</option>
+          <option value="problemas">Solo con problemas</option>
+          <option value="pendientes">Solo pendientes</option>
+        </select>
+      </div>
+      <div class="inf-row" style="gap:8px">
+        <button class="inf-btn pdf" onclick="downloadPDF()">🖨️ Imprimir / PDF</button>
+        <button class="inf-btn csv" onclick="exportCSV()">📊 Exportar CSV</button>
+      </div>
+    </div>
+    <div class="inf-preview">
+      <div class="inf-wrap">
+        <table id="infTable">
+          <thead><tr>
+            <th>N°</th><th>Sector</th><th>Piso</th><th>Ubicación</th>
+            <th>Estado</th><th>Fecha ctrl.</th><th>Inspector</th><th>Problemas / Obs.</th>
+          </tr></thead>
+          <tbody id="infBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" id="tab-lista" onclick="switchTab('lista')"><span class="ni">📋</span>Lista</button>
+  <button class="nav-btn" id="tab-res" onclick="switchTab('res')"><span class="ni">📊</span>Resumen</button>
+  <button class="nav-btn" id="tab-inf" onclick="switchTab('inf')"><span class="ni">📄</span>Informe</button>
+</div>
+
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<div class="panel" id="panel">
+  <div class="panel-drag"></div>
+  <div class="panel-head" id="panelHead"></div>
+  <div class="panel-scroll" id="panelBody"></div>
+  <div class="panel-actions">
+    <button class="btn-cancel" onclick="closePanel()">Cancelar</button>
+    <button class="btn-save" id="btnSave" onclick="saveForm()">💾 GUARDAR</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const HIDRANTES = [{"sector":"CMI","num":35,"piso":"PB","ubicacion":"P.B Cons. Pediatria","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":36,"piso":"PB","ubicacion":"P.B CMI Salida jardin","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":37,"piso":"PB","ubicacion":"Salud mental pediatrica","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":38,"piso":"1°P","ubicacion":"1°P Frente Hab. 128","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":39,"piso":"1°P","ubicacion":"1°P Gineco","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":40,"piso":"2°P","ubicacion":"Frente a Hab. 230","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":93,"piso":"2°P","ubicacion":"Hall asc. 10","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":41,"piso":"2°P","ubicacion":"Frente a Hab. 237","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":49,"piso":"3°P","ubicacion":"3°P Oncología pediátrica","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":50,"piso":"3°P","ubicacion":"Oncología pediatrica","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":90,"piso":"3°P","ubicacion":"3°P Hall Asc. N°10","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":91,"piso":"3°P","ubicacion":"3°P Oncologia infantil","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"CMI","num":92,"piso":"3°P","ubicacion":"Terraza oncologia","diam":44.5,"venc_ph":"2026-05-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":85,"piso":"1SS","ubicacion":"Camara Cloacal","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":86,"piso":"1SS","ubicacion":"Tunel Técnico, pile","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":87,"piso":"1SS","ubicacion":"Frente a caldera","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":88,"piso":"1SS","ubicacion":"Tunel Técnico CMI","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":89,"piso":"1SS","ubicacion":"Tunel técnico sala Asc.","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":94,"piso":"PB","ubicacion":"P.B Entrada a cocina","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":95,"piso":"PB","ubicacion":"Entrada de Lavadero","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":96,"piso":"PB","ubicacion":"Cocina Pasillo interno","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":97,"piso":"PB","ubicacion":"Atrás de lavadero","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":42,"piso":"PB","ubicacion":"Entrada Personal","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":43,"piso":"1°P","ubicacion":"Gerencia de personal","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":44,"piso":"1°P","ubicacion":"Vestuario masculino","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":45,"piso":"2°P","ubicacion":"Medicina Laboral","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":46,"piso":"2°P","ubicacion":"Vestuario femenino","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":47,"piso":"3°P","ubicacion":"Esc. De Enf. Baños","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":48,"piso":"3°P","ubicacion":"Esc. De Enf. Dirección","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":117,"piso":"PB","ubicacion":"Playón Juncal A","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Ecuador","num":98,"piso":"T","ubicacion":"Terraza de Lavadero","diam":44.5,"venc_ph":"2026-08-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":34,"piso":"1SS","ubicacion":"Centro de emergencias","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":77,"piso":"1SS","ubicacion":"Centro de emer, entrada","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":78,"piso":"1SS","ubicacion":"Entrada traumatologia","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":79,"piso":"1SS","ubicacion":"1°SS Hall de ASC 6","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":80,"piso":"PB","ubicacion":"1°P Entrada a Com","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":102,"piso":"PB","ubicacion":"Oficina ART","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":103,"piso":"PB","ubicacion":"Pasillo vidriado","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":104,"piso":"PB","ubicacion":"Pasillo vidriado Neumología","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":105,"piso":"PB","ubicacion":"Entrada a laboratorio","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":106,"piso":"PB","ubicacion":"Pasillo Urologia","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":107,"piso":"PB","ubicacion":"Pasillo int laboratorio","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":108,"piso":"PB","ubicacion":"Laboratorio 1°P","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":110,"piso":"2°P","ubicacion":"1°P Capilla, cirugia","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":111,"piso":"2°P","ubicacion":"2°P Hospital de dia quir.","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":112,"piso":"2°P","ubicacion":"2°P Hospital de dia quir.","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":113,"piso":"2°P","ubicacion":"Pasillo rehabilitación","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":114,"piso":"2°P","ubicacion":"Rehabilitación","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":81,"piso":"2°P","ubicacion":"2°P entrada a pabellon","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":82,"piso":"2°P","ubicacion":"2°P pasillo pabellon","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":83,"piso":"3°P","ubicacion":"3°P Ed. Histórico","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"Edificio Histórico","num":84,"piso":"3°P","ubicacion":"3°P Ed. Histórico","diam":44.5,"venc_ph":"2026-11-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":52,"piso":"3SS","ubicacion":"3° SS, Frente a asc 14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":53,"piso":"2SS","ubicacion":"Recepción radioterapia","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":55,"piso":"2SS","ubicacion":"2° SS, Frente a asc 14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":56,"piso":"1SS","ubicacion":"1°SS, Clínica onco","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":58,"piso":"1SS","ubicacion":"1°SS, Frente a asc 14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":59,"piso":"1SS","ubicacion":"1° SS, Ingreso a UTI","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":63,"piso":"PB","ubicacion":"PB Frente a asc 14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":68,"piso":"2°P","ubicacion":"2° P Frente a asc N°14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":70,"piso":"3°P","ubicacion":"3°P Frente a asc N°14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":72,"piso":"4°P","ubicacion":"4°P Frente a asc N°14","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":73,"piso":"4°P","ubicacion":"Vestuario Sulimp","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":115,"piso":"4°P","ubicacion":"4°P Final de escalera","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO A","num":116,"piso":"4°P","ubicacion":"4°P Pasillo plan medico","diam":44.5,"venc_ph":"2026-07-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":51,"piso":"3SS","ubicacion":"3° SS Depósito","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":54,"piso":"2SS","ubicacion":"2° SS Depósito","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":57,"piso":"1SS","ubicacion":"1° SS Depósito","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":67,"piso":"2°P","ubicacion":"2°P Serv. Transplante","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":60,"piso":"1SS","ubicacion":"1° SS Sala de medicos","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":61,"piso":"PB","ubicacion":"Pasillo técnico UCC","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":62,"piso":"PB","ubicacion":"PB Frente asc","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":64,"piso":"PB","ubicacion":"P.B Farmacia internación","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":65,"piso":"PB","ubicacion":"Sala de espera farmacia","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":66,"piso":"1°P","ubicacion":"Pasillo Público Dermoestetica","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":69,"piso":"3°P","ubicacion":"3°P Clinica oncologica","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":71,"piso":"4°P","ubicacion":"4° P Clinica oncológica","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":74,"piso":"5°P","ubicacion":"5° P Clinica oncológica","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":75,"piso":"6°P","ubicacion":"6° P Sala de maq.","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"JUNCAL NUCLEO B","num":76,"piso":"T","ubicacion":"7° P Terraza","diam":44.5,"venc_ph":"2026-12-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":1,"piso":"1SS","ubicacion":"Hall de Resonancia","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":2,"piso":"1SS","ubicacion":"Rayos Pasillo verde","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":3,"piso":"1SS","ubicacion":"Rayos frente asc.","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":4,"piso":"1SS","ubicacion":"Hall de hemodinamia","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":5,"piso":"1SS","ubicacion":"Rayos, interior de med. N","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":6,"piso":"PB","ubicacion":"PM Frente a informes","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":7,"piso":"PB","ubicacion":"Plan medico frente asc","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":8,"piso":"PB","ubicacion":"PB Frente a asc 4y 5","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":9,"piso":"PB","ubicacion":"Policlínica Oftalmo.","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":10,"piso":"PB","ubicacion":"Poli. Pasillo interno","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":11,"piso":"PB","ubicacion":"Policlinica Escalera","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":12,"piso":"1°P","ubicacion":"Finanzas, marketing","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":13,"piso":"1°P","ubicacion":"Frente a asc. 1y2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":14,"piso":"EP","ubicacion":"E.P Hall odonto","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":109,"piso":"1°P","ubicacion":"Entrada a biblioteca","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":15,"piso":"1°P","ubicacion":"Casino médico","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":16,"piso":"2°P","ubicacion":"Gastroenterología","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":17,"piso":"2°P","ubicacion":"Frente asc. 1y2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":18,"piso":"2°P","ubicacion":"entre Hab 203 y 204","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":19,"piso":"3°P","ubicacion":"Endoscopia","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":20,"piso":"3°P","ubicacion":"Frente asc. N°1y2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":21,"piso":"3°P","ubicacion":"Entre Hab 303 y 304","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":22,"piso":"4°P","ubicacion":"4to P Ecografía","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":23,"piso":"4°P","ubicacion":"4°P Frente a asc 1 y 2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":24,"piso":"4°P","ubicacion":"Entre Hab 402 y 403","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":25,"piso":"5°P","ubicacion":"Clinica medica","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":26,"piso":"5°P","ubicacion":"Frente asc. N°1y2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":27,"piso":"5°P","ubicacion":"Entre Hab 501 y 502","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":28,"piso":"6°P","ubicacion":"6to piso frente asc 1y2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":29,"piso":"6°P","ubicacion":"6°P SALA DE OP","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":30,"piso":"6°P","ubicacion":"6°P Pasillo central","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":31,"piso":"7°P","ubicacion":"7°P Cirugia ambulatoria","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"chorro pleno"},{"sector":"Pueyrredón","num":32,"piso":"7°P","ubicacion":"7°P Frente asc 1y2","diam":44.5,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Pueyrredón","num":33,"piso":"7°P","ubicacion":"7° P Anatomía patologica","diam":70.0,"venc_ph":"2026-10-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":157,"piso":"3SS","ubicacion":"Sala de tanque cisterna","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":118,"piso":"2SS","ubicacion":"Pasillo lado nucleo patio interno","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":119,"piso":"2SS","ubicacion":"Pasillo hacia insumos","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":120,"piso":"2SS","ubicacion":"Deposito de insumos","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":123,"piso":"2SS","ubicacion":"Pasillo sala de filtros TROX","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":161,"piso":"2SS","ubicacion":"entrada sala de filtros TROX","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":121,"piso":"2SS","ubicacion":"Columna I sala TROX","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":122,"piso":"2SS","ubicacion":"Columna II sala TROX","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":162,"piso":"2SS","ubicacion":"Deposito de farmacia","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":159,"piso":"1SS","ubicacion":"Pasillo trablero electrico","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":160,"piso":"1SS","ubicacion":"Pasillo lado externo porton metalico","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":124,"piso":"1SS","ubicacion":"Pasillo lado patio interno","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":125,"piso":"1SS","ubicacion":"F60 ingreso a quirofanos","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":127,"piso":"1SS","ubicacion":"Pasillo lado interno quirofano porton metalico","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":129,"piso":"1SS","ubicacion":"Frente a quirofano 3","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":128,"piso":"1SS","ubicacion":"Pasillo fondo quirofanos","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":126,"piso":"1SS","ubicacion":"Frente a quirofano 8","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":134,"piso":"PB","ubicacion":"Hall ascensores 20-21","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":13,"piso":"PB","ubicacion":"Costado auditorio I","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":131,"piso":"PB","ubicacion":"Costado auditorio II","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":133,"piso":"PB","ubicacion":"Pasillo costado ascensores 20-21","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":130,"piso":"PB","ubicacion":"Entrada a escalera a SS","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":135,"piso":"PB","ubicacion":"Entrada a confiteria","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":158,"piso":"1°P","ubicacion":"Confiteria vestuaio","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":136,"piso":"1°P","ubicacion":"Sala de medicos","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":137,"piso":"2°P","ubicacion":"Office alimentacion","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":138,"piso":"2°P","ubicacion":"Pasillo habitaciones","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":139,"piso":"2°P","ubicacion":"UCO","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":141,"piso":"3°P","ubicacion":"Office alimentacion","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":142,"piso":"3°P","ubicacion":"Pasillo habitaciones","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":140,"piso":"3°P","ubicacion":"Office enfermeria","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":143,"piso":"4°P","ubicacion":"Office alimentacion","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":144,"piso":"4°P","ubicacion":"Pasillo habitaciones","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":145,"piso":"4°P","ubicacion":"Office enfermeria","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":148,"piso":"5°P","ubicacion":"Office alimentacion","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":147,"piso":"5°P","ubicacion":"Pasillo habitaciones","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":146,"piso":"5°P","ubicacion":"Office enfermeria","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":149,"piso":"6°P","ubicacion":"Office alimentacion","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":150,"piso":"6°P","ubicacion":"Pasillo habitaciones","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":151,"piso":"6°P","ubicacion":"Office enfermeria","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":152,"piso":"7°P","ubicacion":"Office alimentacion","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":153,"piso":"7°P","ubicacion":"Pasillo habitaciones","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":154,"piso":"7°P","ubicacion":"Office enfermeria","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":155,"piso":"T","ubicacion":"Hall sala de ascensores 22-23-24","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"},{"sector":"Juncal II","num":156,"piso":"T","ubicacion":"Patio","diam":44.5,"venc_ph":"2026-09-01","tipo_lanza":"TGB"}];
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let registros = {};
+let roomCode = null;
+let selectedSector = 'TODOS';
+let activeNum = null;
+let formState = {};
+let syncTimer = null;
+let isSyncing = false;
+const STORAGE_KEY = 'hidrantes_v2';
+const ROOM_KEY = 'hidrantes_room';
+const SECTORS = ['TODOS', ...new Set(HIDRANTES.map(h => h.sector))];
+
+// ─── STORAGE API (usa Artifact storage para online) ──────────────────────────
+async function cloudGet(key) {
+  try {
+    const res = await window.storage.get('room:' + key, true);
+    return res ? JSON.parse(res.value) : null;
+  } catch { return null; }
+}
+async function cloudSet(key, val) {
+  try {
+    await window.storage.set('room:' + key, JSON.stringify(val), true);
+    return true;
+  } catch { return false; }
+}
+
+// ─── SYNC ────────────────────────────────────────────────────────────────────
+function setSyncUI(state, extra) {
+  const badge = document.getElementById('syncBadge');
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncTxt');
+  badge.className = 'sync-badge ' + state;
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' pulse' : '');
+  txt.textContent = extra || (state === 'online' ? 'Online' : state === 'syncing' ? 'Sincronizando...' : 'Local');
+}
+
+async function syncFromCloud() {
+  if (!roomCode) return;
+  setSyncUI('syncing');
+  const data = await cloudGet(roomCode);
+  if (data && typeof data === 'object') {
+    registros = data;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+  }
+  setSyncUI('online', '🟢 ' + roomCode);
+  renderList();
+  renderStatsBar();
+}
+
+async function syncToCloud(showToastOnSuccess) {
+  if (!roomCode) return;
+  setSyncUI('syncing');
+  const ok = await cloudSet(roomCode, registros);
+  setSyncUI(ok ? 'online' : 'offline', ok ? '🟢 ' + roomCode : 'Sin conexión');
+  if (ok && showToastOnSuccess) showToast('☁️ Guardado en línea', 'info');
+}
+
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncFromCloud(), 15000);
+}
+
+// ─── ROOM ────────────────────────────────────────────────────────────────────
+async function connectRoom() {
+  const val = document.getElementById('roomInput').value.trim().toLowerCase().replace(/\s+/g, '-');
+  if (!val || val.length < 3) { showToast('Ingresá un código de al menos 3 caracteres', 'err'); return; }
+  roomCode = val;
+  localStorage.setItem(ROOM_KEY, roomCode);
+  document.getElementById('setupModal').classList.add('hide');
+  document.getElementById('hdr-sub').textContent = 'Sala: ' + roomCode;
+  setSyncUI('syncing');
+  await syncFromCloud();
+  scheduleSync();
+  showToast('✅ Conectado a sala: ' + roomCode, 'info');
+}
+
+function skipOnline() {
+  document.getElementById('setupModal').classList.add('hide');
+  setSyncUI('offline', 'Sin conexión');
+  loadLocal();
+  renderList();
+  renderStatsBar();
+}
+
+function showSyncInfo() {
+  if (roomCode) {
+    showToast('Sala: ' + roomCode + ' · Click para re-sincronizar', 'info');
+    syncFromCloud();
+  } else {
+    document.getElementById('setupModal').classList.remove('hide');
+  }
+}
+
+// ─── LOCAL ───────────────────────────────────────────────────────────────────
+function loadLocal() {
+  try { registros = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { registros = {}; }
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const K = n => String(n);
+function checkIssues(r) {
+  const p = [];
+  if (r.manguera_estado === 'M') p.push('Manguera mal estado');
+  if (r.manguera_estado === 'R') p.push('Manguera estado regular');
+  if (r.manguera_estibada === 'NO') p.push('No bien estibada');
+  if (r.arandelas === 'M') p.push('Arandelas mal estado');
+  if (r.arandelas === 'R') p.push('Arandelas estado regular');
+  if (r.lanza_apertura === 'NO') p.push('Lanza no abre');
+  if (r.llaves === 'NO') p.push('Faltan llaves');
+  if (r.vidrio === 'NO') p.push('Vidrio en mal estado');
+  if (r.limpio === 'NO') p.push('Sucio');
+  if (r.obstruido === 'SI') p.push('Obstruido');
+  if (r.senalizacion === 'NO') p.push('Sin señalización');
+  return p;
+}
+function getStatus(num) {
+  const r = registros[K(num)];
+  if (!r) return 'pending';
+  return checkIssues(r).length > 0 ? 'issue' : 'ok';
+}
+function isExp(venc) { return venc && new Date(venc) < new Date(); }
+function isSoon(venc) {
+  if (!venc) return false;
+  const d = (new Date(venc) - new Date()) / 86400000;
+  return d >= 0 && d < 30;
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function todayISO() { return new Date().toISOString().split('T')[0]; }
+
+// ─── SECTORS FILTER ──────────────────────────────────────────────────────────
+function renderSectors() {
+  document.getElementById('sectorRow').innerHTML = SECTORS.map(s =>
+    `<div class="chip ${s === selectedSector ? 'active' : ''}" onclick="setSector('${s}')">${s}</div>`
+  ).join('');
+  // populate informe selector
+  const sel = document.getElementById('infSector');
+  if (sel.options.length <= 1) {
+    SECTORS.filter(s => s !== 'TODOS').forEach(s => {
+      const o = document.createElement('option');
+      o.value = s; o.textContent = s;
+      sel.appendChild(o);
+    });
+  }
+}
+function setSector(s) { selectedSector = s; renderSectors(); renderList(); }
+
+// ─── STATS BAR ────────────────────────────────────────────────────────────────
+function renderStatsBar() {
+  const total = HIDRANTES.length;
+  const done = Object.keys(registros).length;
+  const bad = Object.values(registros).filter(r => checkIssues(r).length > 0).length;
+  document.getElementById('statsRow').innerHTML =
+    `<div class="sstat"><div class="sdot" style="background:var(--blue)"></div>${done}/${total} inspeccionados</div>` +
+    (bad > 0 ? `<div class="sstat"><div class="sdot" style="background:var(--bad)"></div>${bad} con problemas</div>` : '');
+}
+
+// ─── LIST ─────────────────────────────────────────────────────────────────────
+function getFiltered() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  return HIDRANTES.filter(h => {
+    const ms = selectedSector === 'TODOS' || h.sector === selectedSector;
+    const mq = !q || h.ubicacion.toLowerCase().includes(q) || String(h.num).includes(q) ||
+      h.sector.toLowerCase().includes(q) || h.piso.toLowerCase().includes(q);
+    return ms && mq;
+  });
+}
+
+function renderList() {
+  const filtered = getFiltered();
+  const el = document.getElementById('list');
+  renderStatsBar();
+  if (!filtered.length) { el.innerHTML = '<div class="empty"><div class="big">🔍</div><p>Sin resultados</p></div>'; return; }
+  const byS = {};
+  filtered.forEach(h => { if (!byS[h.sector]) byS[h.sector] = []; byS[h.sector].push(h); });
+  let html = '';
+  Object.entries(byS).forEach(([sec, hs]) => {
+    const done = hs.filter(h => registros[K(h.num)]).length;
+    html += `<div class="sector-hdr"><span>🏢 ${sec}</span><span class="sector-ct">${done}/${hs.length}</span></div>`;
+    hs.forEach(h => {
+      const st = getStatus(h.num);
+      const r = registros[K(h.num)];
+      const issues = r ? checkIssues(r) : [];
+      const vexp = isExp(h.venc_ph); const vsoon = !vexp && isSoon(h.venc_ph);
+      const badge = st === 'ok' ? '✓' : st === 'issue' ? '!' : '○';
+      const hasFooter = issues.length || (r && r.observaciones) || (r && r.fecha);
+      html += `<div class="card ${st !== 'pending' ? 'done' : ''} ${st === 'issue' ? 'issue' : ''}" onclick="openForm(${h.num})">
+        <div class="card-hdr">
+          <div class="card-num">${h.num}</div>
+          <div class="card-info">
+            <div class="card-ubi">${h.ubicacion}</div>
+            <div class="card-tags">
+              <span class="tag t-piso">${h.piso}</span>
+              <span class="tag t-lanza">${h.tipo_lanza}</span>
+              <span class="tag t-diam">Ø${h.diam}mm</span>
+              ${h.venc_ph ? `<span class="tag t-venc ${vexp ? 'exp' : ''}">Venc:${h.venc_ph}</span>` : ''}
+              ${r && r.fecha ? `<span class="tag t-fecha">📅 ${fmtDate(r.fecha)}</span>` : ''}
+            </div>
+          </div>
+          <div class="badge ${st}">${badge}</div>
+        </div>
+        ${hasFooter ? `<div class="card-footer">
+          ${issues.length ? `<div class="card-issue-txt">⚠ ${issues.join(' · ')}</div>` : ''}
+          ${r && r.observaciones ? `<div class="card-obs-txt">📝 ${r.observaciones}</div>` : ''}
+          ${r && r.bombero ? `<div class="card-ctrl-txt">👷 ${r.bombero}</div>` : ''}
+        </div>` : ''}
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+// ─── FORM ─────────────────────────────────────────────────────────────────────
+function openForm(num) {
+  activeNum = num;
+  const h = HIDRANTES.find(x => x.num === num);
+  const r = registros[K(num)] || {};
+  formState = { ...r };
+
+  document.getElementById('panelHead').innerHTML = `
+    <div class="panel-num">${h.num}</div>
+    <div><div class="panel-name">${h.ubicacion}</div>
+    <div class="panel-sub">${h.sector} · ${h.piso} · Ø${h.diam}mm · ${h.tipo_lanza}${h.venc_ph ? ' · Venc: ' + fmtDate(h.venc_ph) : ''}</div></div>`;
+
+  function tog(field, opts) {
+    return `<div class="tg">${opts.map(o =>
+      `<button class="tb ${o.toLowerCase().replace(' ','')} ${formState[field] === o ? 'on' : ''}" data-field="${field}" data-val="${o}" onclick="setF('${field}','${o}',this,'${opts.join(',')}')">${o}</button>`
+    ).join('')}</div>`;
+  }
+
+  document.getElementById('panelBody').innerHTML = `
+    <div class="fsec">
+      <div class="fsec-title">🚿 Manguera</div>
+      <div class="frow"><div class="flabel">Estado</div>${tog('manguera_estado',['M','R','B'])}</div>
+      <div class="frow"><div class="flabel">¿Bien estibada?</div>${tog('manguera_estibada',['SI','NO'])}</div>
+      <div class="frow"><div class="flabel">Arandelas de goma</div>${tog('arandelas',['M','R','B'])}</div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">🔧 Lanza y Llaves</div>
+      <div class="frow"><div class="flabel">Apertura de lanza</div>${tog('lanza_apertura',['SI','NO'])}</div>
+      <div class="frow"><div class="flabel">¿Tiene las 2 llaves?</div>${tog('llaves',['SI','NO'])}</div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">🔴 Hidrante</div>
+      <div class="frow"><div class="flabel">Vidrio en buen estado</div>${tog('vidrio',['SI','NO'])}</div>
+      <div class="frow"><div class="flabel">¿Está limpio?</div>${tog('limpio',['SI','NO'])}</div>
+      <div class="frow"><div class="flabel">¿Obstruido?</div>${tog('obstruido',['SI','NO'])}</div>
+      <div class="frow"><div class="flabel">¿Bien señalizado?</div>${tog('senalizacion',['SI','NO'])}</div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">📅 Fecha y Responsable</div>
+      <div class="frow">
+        <div class="flabel">Fecha de control</div>
+        <input class="finput" id="f_dia" type="number" min="1" max="31" placeholder="DD" value="${r.fecha ? r.fecha.split('-')[2] : ''}" style="width:52px;text-align:center">
+        <input class="finput" id="f_mes" type="number" min="1" max="12" placeholder="MM" value="${r.fecha ? r.fecha.split('-')[1] : ''}" style="width:52px;text-align:center">
+        <input class="finput" id="f_anio" type="number" min="2024" max="2040" placeholder="AAAA" value="${r.fecha ? r.fecha.split('-')[0] : new Date().getFullYear()}" style="width:72px;text-align:center">
+      </div>
+      <div class="frow">
+        <div class="flabel">Bombero inspector</div>
+        <input class="finput" id="f_bombero" type="text" placeholder="Nombre..." value="${r.bombero || ''}" style="flex:1">
+      </div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">📝 Observaciones</div>
+      <textarea class="ftextarea" id="f_obs" placeholder="Escribir observaciones...">${r.observaciones || ''}</textarea>
+    </div>`;
+
+  document.getElementById('overlay').classList.add('on');
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('btnSave').textContent = '💾 GUARDAR';
+  document.getElementById('btnSave').classList.remove('saving');
+}
+
+function setF(field, val, btn, optsStr) {
+  const opts = optsStr.split(',');
+  const body = document.getElementById('panelBody');
+  body.querySelectorAll(`.tb[data-field="${field}"]`).forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  formState[field] = val;
+}
+
+async function saveForm() {
+  const btn = document.getElementById('btnSave');
+  btn.textContent = '⏳ Guardando...';
+  btn.classList.add('saving');
+
+  // Build fecha ISO from day/month/year fields
+  const dia = document.getElementById('f_dia').value.padStart(2, '0');
+  const mes = document.getElementById('f_mes').value.padStart(2, '0');
+  const anio = document.getElementById('f_anio').value;
+  let fecha = '';
+  if (dia && mes && anio && anio.length === 4) fecha = `${anio}-${mes}-${dia}`;
+
+  formState.fecha = fecha;
+  formState.bombero = document.getElementById('f_bombero').value.trim();
+  formState.observaciones = document.getElementById('f_obs').value.trim();
+  formState.ts = Date.now();
+
+  registros[K(activeNum)] = formState;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+
+  if (roomCode) {
+    await syncToCloud(false);
+    showToast('✅ Guardado y sincronizado', 'ok');
+  } else {
+    showToast('✅ Guardado localmente', 'ok');
+  }
+
+  closePanel();
+  renderList();
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('on');
+  activeNum = null; formState = {};
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function switchTab(t) {
+  ['lista','res','inf'].forEach(id => {
+    document.getElementById('tab-' + id).classList.toggle('active', id === t);
+    const el = id === 'lista' ? document.getElementById('view-lista') : document.getElementById('view-' + id);
+    if (id === 'lista') el.style.display = t === 'lista' ? 'block' : 'none';
+    else el.classList.toggle('on', id === t);
+  });
+  if (t === 'res') renderResumen();
+  if (t === 'inf') renderInforme();
+  if (roomCode && t === 'lista') syncFromCloud();
+}
+
+// ─── RESUMEN ─────────────────────────────────────────────────────────────────
+function renderResumen() {
+  const total = HIDRANTES.length;
+  const done = Object.keys(registros).length;
+  const bad = Object.values(registros).filter(r => checkIssues(r).length > 0).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const sStats = {};
+  HIDRANTES.forEach(h => {
+    if (!sStats[h.sector]) sStats[h.sector] = {t:0,d:0,i:0};
+    sStats[h.sector].t++;
+    if (registros[K(h.num)]) { sStats[h.sector].d++; if (checkIssues(registros[K(h.num)]).length > 0) sStats[h.sector].i++; }
+  });
+  const issueHs = HIDRANTES.filter(h => registros[K(h.num)] && checkIssues(registros[K(h.num)]).length > 0);
+  const vencHs = HIDRANTES.filter(h => isExp(h.venc_ph) || isSoon(h.venc_ph));
+  const today = new Date().toLocaleDateString('es-AR');
+
+  let html = `<div class="scard">
+    <h3>📊 Progreso General</h3>
+    <div class="srow"><span>Total hidrantes</span><span class="snum">${total}</span></div>
+    <div class="srow"><span>Inspeccionados</span><span class="snum blue">${done}</span></div>
+    <div class="srow"><span>Pendientes</span><span class="snum warn">${total-done}</span></div>
+    <div class="srow"><span>Con problemas</span><span class="snum bad">${bad}</span></div>
+    <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+    <div style="text-align:right;font-size:11px;color:var(--text2)">${pct}% completado · ${today}</div>
+  </div>
+  <div class="scard"><h3>🏢 Por Sector</h3>${Object.entries(sStats).map(([s,st]) =>
+    `<div class="srow"><span style="font-size:12px">${s}</span>
+    <span style="display:flex;gap:8px;align-items:center">
+      ${st.i > 0 ? `<span style="color:var(--bad);font-size:11px;font-weight:700">⚠${st.i}</span>` : ''}
+      <span class="snum ${st.d===st.t?'ok':'warn'}" style="font-size:15px">${st.d}/${st.t}</span>
+    </span></div>`).join('')}</div>`;
+
+  if (issueHs.length) html += `<div class="scard bad-card"><h3>⚠️ Con Problemas (${issueHs.length})</h3>
+    ${issueHs.map(h => { const is = checkIssues(registros[K(h.num)]); return `<div class="iitem"><div class="inum">#${h.num}</div><div class="idesc"><strong>${h.ubicacion}</strong><br>${is.join(', ')}</div></div>`; }).join('')}</div>`;
+
+  if (vencHs.length) html += `<div class="scard warn-card"><h3>📅 Vencimientos (${vencHs.length})</h3>
+    ${vencHs.map(h => `<div class="iitem"><div class="inum">#${h.num}</div><div class="idesc">${h.ubicacion} · <strong style="color:${isExp(h.venc_ph)?'var(--bad)':'var(--warn)'}">${h.venc_ph}</strong></div></div>`).join('')}</div>`;
+
+  document.getElementById('view-res').innerHTML = html;
+}
+
+// ─── INFORME ──────────────────────────────────────────────────────────────────
+function renderInforme() {
+  const sec = document.getElementById('infSector').value;
+  const fil = document.getElementById('infFiltro').value;
+  let hs = HIDRANTES.filter(h => sec === 'TODOS' || h.sector === sec);
+  if (fil === 'inspeccionados') hs = hs.filter(h => registros[K(h.num)]);
+  if (fil === 'problemas') hs = hs.filter(h => registros[K(h.num)] && checkIssues(registros[K(h.num)]).length > 0);
+  if (fil === 'pendientes') hs = hs.filter(h => !registros[K(h.num)]);
+
+  const tbody = document.getElementById('infBody');
+  tbody.innerHTML = hs.map(h => {
+    const r = registros[K(h.num)];
+    const st = getStatus(h.num);
+    const issues = r ? checkIssues(r) : [];
+    const stLabel = st === 'ok' ? '<span class="status-ok">✓ OK</span>' : st === 'issue' ? '<span class="status-bad">⚠ Problema</span>' : '<span class="status-na">— Pendiente</span>';
+    const obs = [issues.join('; '), r && r.observaciones ? r.observaciones : ''].filter(Boolean).join(' | ');
+    return `<tr>
+      <td><strong>${h.num}</strong></td>
+      <td style="white-space:nowrap">${h.sector}</td>
+      <td>${h.piso}</td>
+      <td>${h.ubicacion}</td>
+      <td>${stLabel}</td>
+      <td style="white-space:nowrap">${r && r.fecha ? fmtDate(r.fecha) : '—'}</td>
+      <td>${r && r.bombero ? r.bombero : '—'}</td>
+      <td style="max-width:200px;word-wrap:break-word;font-size:10px">${obs || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const meta = `Generado: ${new Date().toLocaleDateString('es-AR')} · Sector: ${sec} · Filtro: ${fil} · ${hs.length} registros`;
+  document.getElementById('printMeta').textContent = meta;
+}
+
+function downloadPDF() {
+  renderInforme();
+  switchTab('inf');
+  setTimeout(() => window.print(), 300);
+}
+
+function exportCSV() {
+  const sec = document.getElementById('infSector').value;
+  const fil = document.getElementById('infFiltro').value;
+  let hs = HIDRANTES.filter(h => sec === 'TODOS' || h.sector === sec);
+  if (fil === 'inspeccionados') hs = hs.filter(h => registros[K(h.num)]);
+  if (fil === 'problemas') hs = hs.filter(h => registros[K(h.num)] && checkIssues(registros[K(h.num)]).length > 0);
+  if (fil === 'pendientes') hs = hs.filter(h => !registros[K(h.num)]);
+
+  const rows = [['N°','Sector','Piso','Ubicación','Diámetro','Tipo Lanza','Venc. PH','Estado Inspección',
+    'Manga Estado','Bien Estibada','Arandelas','Apertura Lanza','Llaves','Vidrio','Limpio','Obstruido','Señalización',
+    'Fecha Control','Inspector','Observaciones','Problemas']];
+  hs.forEach(h => {
+    const r = registros[K(h.num)] || {};
+    rows.push([h.num,h.sector,h.piso,h.ubicacion,h.diam,h.tipo_lanza,h.venc_ph,
+      r.ts ? 'Inspeccionado' : 'Pendiente',
+      r.manguera_estado||'',r.manguera_estibada||'',r.arandelas||'',
+      r.lanza_apertura||'',r.llaves||'',r.vidrio||'',r.limpio||'',r.obstruido||'',r.senalizacion||'',
+      r.fecha ? fmtDate(r.fecha) : '',r.bombero||'',r.observaciones||'',
+      checkIssues(r).join('; ')]);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `Hidrantes_${sec}_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(function init() {
+  loadLocal();
+  renderSectors();
+  // Check for saved room
+  const savedRoom = localStorage.getItem(ROOM_KEY);
+  if (savedRoom) {
+    document.getElementById('roomInput').value = savedRoom;
+    document.getElementById('setupModal').classList.add('hide');
+    roomCode = savedRoom;
+    document.getElementById('hdr-sub').textContent = 'Sala: ' + roomCode;
+    syncFromCloud().then(() => scheduleSync());
+  }
+  renderList();
+  // Auto-sync every 20s when online
+  setInterval(() => { if (roomCode) syncFromCloud(); }, 20000);
+})();
+</script>
+</body>
+</html>
