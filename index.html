@@ -270,7 +270,7 @@ header{background:linear-gradient(135deg,var(--red-dark),#0a0608 70%);padding:14
         <table id="infTable">
           <thead><tr>
             <th>N°</th><th>Sector</th><th>Piso</th><th>Ubicación</th>
-            <th>Estado</th><th>Fecha ctrl.</th><th>Inspector</th><th>Problemas / Obs.</th>
+            <th>Estado</th><th>Fecha ctrl.</th><th>Fecha PH</th><th>Inspector</th><th>Problemas / Obs.</th>
           </tr></thead>
           <tbody id="infBody"></tbody>
         </table>
@@ -407,8 +407,7 @@ function checkIssues(r) {
   if (r.manguera_estado === 'M') p.push('Manguera mal estado');
   if (r.manguera_estado === 'R') p.push('Manguera estado regular');
   if (r.manguera_estibada === 'NO') p.push('No bien estibada');
-  if (r.arandelas === 'M') p.push('Arandelas mal estado');
-  if (r.arandelas === 'R') p.push('Arandelas estado regular');
+  if (r.posee_lanza === 'NO') p.push('No posee lanza');
   if (r.lanza_apertura === 'NO') p.push('Lanza no abre');
   if (r.llaves === 'NO') p.push('Faltan llaves');
   if (r.vidrio === 'NO') p.push('Vidrio en mal estado');
@@ -501,7 +500,7 @@ function renderList() {
               <span class="tag t-lanza">${h.tipo_lanza}</span>
               <span class="tag t-diam">Ø${h.diam}mm</span>
               ${h.venc_ph ? `<span class="tag t-venc ${vexp ? 'exp' : ''}">Venc:${h.venc_ph}</span>` : ''}
-              ${r && r.fecha ? `<span class="tag t-fecha">📅 ${fmtDate(r.fecha)}</span>` : ''}
+              ${r && r.fecha ? `<span class="tag t-fecha">📅 ${fmtDate(r.fecha)}</span>` : ''}${r && r.fecha_ph ? `<span class="tag t-venc">PH: ${fmtDate(r.fecha_ph)}</span>` : ''}
             </div>
           </div>
           <div class="badge ${st}">${badge}</div>
@@ -540,10 +539,16 @@ function openForm(num) {
       <div class="fsec-title">🚿 Manguera</div>
       <div class="frow"><div class="flabel">Estado</div>${tog('manguera_estado',['M','R','B'])}</div>
       <div class="frow"><div class="flabel">¿Bien estibada?</div>${tog('manguera_estibada',['SI','NO'])}</div>
-      <div class="frow"><div class="flabel">Arandelas de goma</div>${tog('arandelas',['M','R','B'])}</div>
+      <div class="frow">
+        <div class="flabel">Fecha de la PH</div>
+        <input class="finput" id="f_ph_dia" type="number" min="1" max="31" placeholder="DD" value="${r.fecha_ph ? r.fecha_ph.split('-')[2] : ''}" style="width:52px;text-align:center">
+        <input class="finput" id="f_ph_mes" type="number" min="1" max="12" placeholder="MM" value="${r.fecha_ph ? r.fecha_ph.split('-')[1] : ''}" style="width:52px;text-align:center">
+        <input class="finput" id="f_ph_anio" type="number" min="2020" max="2040" placeholder="AAAA" value="${r.fecha_ph ? r.fecha_ph.split('-')[0] : ''}" style="width:72px;text-align:center">
+      </div>
     </div>
     <div class="fsec">
       <div class="fsec-title">🔧 Lanza y Llaves</div>
+      <div class="frow"><div class="flabel">¿Posee lanza?</div>${tog('posee_lanza',['SI','NO'])}</div>
       <div class="frow"><div class="flabel">Apertura de lanza</div>${tog('lanza_apertura',['SI','NO'])}</div>
       <div class="frow"><div class="flabel">¿Tiene las 2 llaves?</div>${tog('llaves',['SI','NO'])}</div>
     </div>
@@ -599,6 +604,13 @@ async function saveForm() {
   if (dia && mes && anio && anio.length === 4) fecha = `${anio}-${mes}-${dia}`;
 
   formState.fecha = fecha;
+
+  const ph_dia = document.getElementById('f_ph_dia').value.padStart(2, '0');
+  const ph_mes = document.getElementById('f_ph_mes').value.padStart(2, '0');
+  const ph_anio = document.getElementById('f_ph_anio').value;
+  let fecha_ph = '';
+  if (ph_dia && ph_mes && ph_anio && ph_anio.length === 4) fecha_ph = `${ph_anio}-${ph_mes}-${ph_dia}`;
+  formState.fecha_ph = fecha_ph;
   formState.bombero = document.getElementById('f_bombero').value.trim();
   formState.observaciones = document.getElementById('f_obs').value.trim();
   formState.ts = Date.now();
@@ -700,6 +712,7 @@ function renderInforme() {
       <td>${h.ubicacion}</td>
       <td>${stLabel}</td>
       <td style="white-space:nowrap">${r && r.fecha ? fmtDate(r.fecha) : '—'}</td>
+      <td style="white-space:nowrap">${r && r.fecha_ph ? fmtDate(r.fecha_ph) : '—'}</td>
       <td>${r && r.bombero ? r.bombero : '—'}</td>
       <td style="max-width:200px;word-wrap:break-word;font-size:10px">${obs || '—'}</td>
     </tr>`;
@@ -724,13 +737,13 @@ function exportCSV() {
   if (fil === 'pendientes') hs = hs.filter(h => !registros[K(h.num)]);
 
   const rows = [['N°','Sector','Piso','Ubicación','Diámetro','Tipo Lanza','Venc. PH','Estado Inspección',
-    'Manga Estado','Bien Estibada','Arandelas','Apertura Lanza','Llaves','Vidrio','Limpio','Obstruido','Señalización',
+    'Manga Estado','Bien Estibada','Fecha PH','Posee Lanza','Apertura Lanza','Llaves','Vidrio','Limpio','Obstruido','Señalización',
     'Fecha Control','Inspector','Observaciones','Problemas']];
   hs.forEach(h => {
     const r = registros[K(h.num)] || {};
     rows.push([h.num,h.sector,h.piso,h.ubicacion,h.diam,h.tipo_lanza,h.venc_ph,
       r.ts ? 'Inspeccionado' : 'Pendiente',
-      r.manguera_estado||'',r.manguera_estibada||'',r.arandelas||'',
+      r.manguera_estado||'',r.manguera_estibada||'',r.fecha_ph ? fmtDate(r.fecha_ph) : '',r.posee_lanza||'',
       r.lanza_apertura||'',r.llaves||'',r.vidrio||'',r.limpio||'',r.obstruido||'',r.senalizacion||'',
       r.fecha ? fmtDate(r.fecha) : '',r.bombero||'',r.observaciones||'',
       checkIssues(r).join('; ')]);
